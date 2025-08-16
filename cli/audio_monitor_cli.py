@@ -63,5 +63,10 @@ async def main():
         monitor.print_statistics()
 
 
+def main_sync():
+    """Synchronous wrapper for the CLI entry point."""
+    return asyncio.run(main())
+
+
 if __name__ == "__main__":
-    asyncio.run(main())
+    main_sync()

@@ -57,5 +57,10 @@ async def run_cli():
     return 0
 
 
+def main():
+    """Synchronous wrapper for the CLI entry point."""
+    return asyncio.run(run_cli())
+
+
 if __name__ == "__main__":
-    asyncio.run(run_cli())
+    main()
