@@ -77,9 +77,28 @@ whisper-rt-aivis/
 
 ## Usage
 
-### 1. Command Line Tools
+### 1. Quick Start
 
-The project provides three main CLI tools:
+**Setup and activate virtual environment:**
+```bash
+uv sync && uv venv activate
+```
+
+**Test the system:**
+```bash
+# Test speech recognition
+whisper-recognize --model base --language ja
+
+# Test text-to-speech
+whisper-synthesize --text "Hello, world!"
+
+# Test integrated system
+whisper-integrated --whisper-model base --auto-synthesize
+```
+
+### 2. Command Line Tools
+
+The project provides three main CLI tools (after `uv venv activate`):
 
 #### Speech Recognition Only
 ```bash
@@ -88,6 +107,9 @@ whisper-recognize
 
 # With custom settings
 whisper-recognize --model large --language en --silence-threshold 0.02
+
+# GPU acceleration
+whisper-recognize --device cuda --compute-type float16
 ```
 
 #### Text-to-Speech Only

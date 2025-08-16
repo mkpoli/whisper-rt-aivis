@@ -2,23 +2,89 @@
 
 This directory contains examples demonstrating how to use the Whisper RT AivisSpeech library.
 
-## Basic Usage
+## Quick Start
 
-Run the basic examples:
-
+**Immediate Testing** (Recommended first):
 ```bash
-python examples/basic_usage.py
+uv sync && uv venv activate
+whisper-recognize --model base --language ja
 ```
 
-This will demonstrate:
-- Speech recognition only
-- Text-to-speech synthesis only  
-- Integrated recognition + synthesis
+This will test speech recognition with the base model.
+
+## Available Examples
+
+### 1. Quick Start (`quick_start.py`)
+- **Purpose**: Test all components immediately
+- **Duration**: ~30 seconds total
+- **Use case**: First-time setup verification
+- **Run**: `python examples/quick_start.py`
+
+### 2. GPU Usage (`gpu_usage.py`) 
+- **Purpose**: Demonstrate CUDA acceleration
+- **Duration**: ~45 seconds total  
+- **Use case**: Performance optimization
+- **Run**: `python examples/gpu_usage.py`
+- **Requirements**: CUDA + PyTorch with CUDA support
+
+### 3. Audio Calibration (`calibration.py`)
+- **Purpose**: Optimize VAD parameters for your environment
+- **Duration**: Variable (interactive)
+- **Use case**: Fine-tuning for specific environments
+- **Run**: `python examples/calibration.py`
+
+### 4. Basic Usage (`basic_usage.py`)
+- **Purpose**: Comprehensive demonstration of all features
+- **Duration**: ~45 seconds total
+- **Use case**: Learning the full API
+- **Run**: `python examples/basic_usage.py`
+
+## Direct Usage Examples
+
+### Speech Recognition Only
+```bash
+# Quick test with CLI (recommended)
+uv sync && uv venv activate
+whisper-recognize --model base --language ja
+
+# Or test examples
+python examples/quick_start.py
+```
+
+### Text-to-Speech Only
+```bash
+# Quick test with CLI
+uv sync && uv venv activate
+whisper-synthesize --text "Hello, world!"
+
+# Or test examples
+python examples/quick_start.py
+```
+
+### Integrated System
+```bash
+# Quick test with CLI
+uv sync && uv venv activate
+whisper-integrated --whisper-model base --auto-synthesize
+
+# Or test examples
+python examples/quick_start.py
+```
+
+## GPU Acceleration
+
+For best performance with CUDA:
+```bash
+# GPU recognition
+whisper-recognize --device cuda --compute-type float16
+
+# GPU integrated system
+whisper-integrated --device cuda --compute-type float16
+```
 
 ## Library Usage
 
 ### Basic Recognition
-
 ```python
 from lib import WhisperRecognizer
 
@@ -36,7 +102,6 @@ history = recognizer.get_text_history()
 ```
 
 ### Basic Synthesis
-
 ```python
 from lib import AivisSpeechSynthesizer
 
@@ -45,7 +110,6 @@ async with AivisSpeechSynthesizer(volume=0.8) as tts:
 ```
 
 ### Integrated System
-
 ```python
 from lib import IntegratedSpeechSystem
 
@@ -64,10 +128,18 @@ await system.close_async()
 
 ## CLI Tools
 
-The library also provides command-line tools:
+The library provides command-line tools that work after `uv sync && uv venv activate`:
 
 - `whisper-recognize` - Speech recognition only
 - `whisper-synthesize` - Text-to-speech only  
 - `whisper-integrated` - Complete system
 
-See the main README for CLI usage details.
+## Recommended Workflow
+
+1. **Setup**: `uv sync && uv venv activate`
+2. **Test Recognition**: `whisper-recognize --model base`
+3. **Test Synthesis**: `whisper-synthesize --text "Test"`
+4. **Test Integrated**: `whisper-integrated --auto-synthesize`
+5. **GPU Usage**: `whisper-recognize --device cuda --compute-type float16`
+
+The CLI tools are the primary way to use the system. The Python examples are for learning the API and debugging.
