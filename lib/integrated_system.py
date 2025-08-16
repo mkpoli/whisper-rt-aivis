@@ -6,6 +6,7 @@ Combines Whisper recognition with AivisSpeech synthesis in a unified system.
 """
 
 import asyncio
+import concurrent.futures as cf
 from typing import Optional
 
 from .recognizer.whisper_recognizer import WhisperRecognizer
@@ -14,19 +15,21 @@ from .synthesizer.synthesizer import AivisSpeechSynthesizer
 
 class IntegratedSpeechSystem:
     """Integrated speech recognition and synthesis system."""
-    
-    def __init__(self, 
-                 whisper_model: str = "large",
-                 speaker_id: int = 1431611904,  # まい speaker
-                 language: str = "ja",
-                 silence_threshold: float = 0.028,
-                 auto_synthesize: bool = True,
-                 volume: float = 1.0,
-                 device: str = "cpu",
-                 compute_type: str = "int8"):
+
+    def __init__(
+        self,
+        whisper_model: str = "large",
+        speaker_id: int = 1431611904,  # まい speaker
+        language: str = "ja",
+        silence_threshold: float = 0.028,
+        auto_synthesize: bool = True,
+        volume: float = 1.0,
+        device: str = "cpu",
+        compute_type: str = "int8",
+    ):
         """
         Initialize integrated speech system.
-        
+
         Args:
             whisper_model: Whisper model size
             speaker_id: AivisSpeech speaker ID
@@ -40,7 +43,7 @@ class IntegratedSpeechSystem:
         self.auto_synthesize = auto_synthesize
         self.volume = volume
         self.speaker_id = speaker_id
-        
+
         # Initialize recognizer
         self.recognizer = WhisperRecognizer(
             model_name=whisper_model,
@@ -48,28 +51,26 @@ class IntegratedSpeechSystem:
             silence_threshold=silence_threshold,
             device=device,
             compute_type=compute_type,
-            on_text_callback=self._on_text_recognized if auto_synthesize else None
+            on_text_callback=self._on_text_recognized if auto_synthesize else None,
         )
-        
+
         # Synthesizer will be initialized later
         self.synthesizer: Optional[AivisSpeechSynthesizer] = None
         self.vv_client = None
-        
+
         # Will be set to the main asyncio loop by the runner
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         # Track pending synthesis tasks scheduled onto the loop
-        self._pending_synth_futures: set[asyncio.Future] = set()
+        self._pending_synth_futures: set[cf.Future] = set()
 
     async def initialize_aivisspeech(self, endpoint: str = "http://localhost:10101"):
         """Initialize AivisSpeech synthesizer."""
         try:
             self.synthesizer = AivisSpeechSynthesizer(
-                endpoint=endpoint,
-                speaker_id=self.speaker_id,
-                volume=self.volume
+                endpoint=endpoint, speaker_id=self.speaker_id, volume=self.volume
             )
             await self.synthesizer.__aenter__()
-            print(f"🎤 AivisSpeech initialized - Version: {await self.synthesizer._client.fetch_engine_version()}")
+            print("🎤 AivisSpeech initialized")
             return True
         except Exception as e:
             print(f"❌ Failed to initialize AivisSpeech: {e}")
@@ -79,17 +80,16 @@ class IntegratedSpeechSystem:
     def start_recording(self):
         """Start the integrated system."""
         if not self.synthesizer and self.auto_synthesize:
-            print("❌ AivisSpeech not initialized. Call initialize_aivisspeech() first.")
+            print(
+                "❌ AivisSpeech not initialized. Call initialize_aivisspeech() first."
+            )
             return
-        
+
         self.recognizer.start_recording()
         print("🚀 Integrated Speech System Started!")
-        print(f"🎯 Whisper Model: {self.recognizer.model_name}")
         print(f"🎤 AivisSpeech Speaker: {self.speaker_id}")
-        print(f"🌍 Language: {self.recognizer.language}")
         print(f"🔊 Auto-synthesis: {'Enabled' if self.auto_synthesize else 'Disabled'}")
         print(f"🔊 Volume: {self.volume}")
-        print("💬 Speak now! Press Ctrl+C to stop.\n")
 
     def stop_recording(self):
         """Stop the integrated system."""
@@ -105,8 +105,10 @@ class IntegratedSpeechSystem:
             )
             # Track and auto-remove when done
             self._pending_synth_futures.add(fut)
+
             def _cleanup(_):
                 self._pending_synth_futures.discard(fut)
+
             fut.add_done_callback(_cleanup)
 
     async def _synthesize_text(self, text: str):
@@ -126,7 +128,7 @@ class IntegratedSpeechSystem:
             if not fut.done():
                 fut.cancel()
         self._pending_synth_futures.clear()
-        
+
         # Close synthesizer if available
         if self.synthesizer:
             await self.synthesizer.__aexit__(None, None, None)
