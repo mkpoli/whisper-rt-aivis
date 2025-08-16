@@ -8,31 +8,34 @@ Core speech recognition class using OpenAI Whisper.
 import time
 import threading
 from collections import deque
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Deque, cast
 import os
 import sys
 from pathlib import Path
 
 import numpy as np
-import pyaudio
-from faster_whisper import WhisperModel
+import pyaudio  # type: ignore
+from faster_whisper import WhisperModel  # type: ignore
 
 
 class WhisperRecognizer:
     """Real-time speech recognition using OpenAI Whisper."""
-    
-    def __init__(self, 
-                 model_name: str = "large",
-                 language: str = "ja",
-                 silence_threshold: float = 0.028,
-                 sample_rate: int = 16000,
-                 chunk_duration: float = 2.0,
-                 device: str = "cpu",
-                 compute_type: str = "int8",
-                 on_text_callback: Optional[Callable[[str, float, float], None]] = None):
+
+    def __init__(
+        self,
+        model_name: str = "large",
+        language: str = "ja",
+        silence_threshold: float = 0.028,
+        sample_rate: int = 16000,
+        chunk_duration: float = 2.0,
+        device: str = "cpu",
+        compute_type: str = "int8",
+        on_text_callback: Optional[Callable[[str, float, float], None]] = None,
+        stop_phrases: Optional[List[str]] = None,
+    ):
         """
         Initialize Whisper recognizer.
-        
+
         Args:
             model_name: Whisper model size (tiny, base, small, medium, large)
             language: Recognition language code
@@ -52,37 +55,53 @@ class WhisperRecognizer:
         self.device = device
         self.compute_type = compute_type
         self.on_text_callback = on_text_callback
-        
+
+        # Stop-phrases to suppress common spurious outputs (e.g., JP YouTube outro)
+        default_stop_phrases = [
+            "ご視聴ありがとうございました",
+        ]
+        self.stop_phrases = set((stop_phrases or []) + default_stop_phrases)
+
         # Audio processing
         self.audio = pyaudio.PyAudio()
         self.stream = None
         self.is_recording = False
-        self.audio_buffer = deque(maxlen=int(self.sample_rate * 10))
-        self.continuous_speech_buffer = deque(maxlen=int(self.sample_rate * 15))
-        
+        self.audio_buffer: Deque[np.int16] = deque(maxlen=int(self.sample_rate * 10))
+        self.continuous_speech_buffer: Deque[np.int16] = deque(
+            maxlen=int(self.sample_rate * 15)
+        )
+
         # Speech detection
         self.is_speaking = False
         self.speech_start_time = 0
         self.continuous_speech_duration = 0
         self.last_speech_time = 0
-        
+
         # Processing
         self.processing_thread = None
         self.last_recognized_text = ""
-        self.text_buffer = []
-        
+        self.text_buffer: List[str] = []
+
         # Initialize Whisper
-        print(f"🎯 Loading Whisper model: {model_name} [device={device}, compute={compute_type}]")
+        print(
+            f"🎯 Loading Whisper model: {model_name} [device={device}, compute={compute_type}]"
+        )
         if self.device == "cuda" and sys.platform == "win32":
             self._prepare_cuda_dlls()
-        self.whisper = WhisperModel(model_name, device=device, compute_type=compute_type)
+        self.whisper = WhisperModel(
+            model_name, device=device, compute_type=compute_type
+        )
         print("✅ Whisper model loaded successfully!")
 
     def _prepare_cuda_dlls(self) -> None:
         """Prepare CUDA DLLs for Windows."""
         try:
             import torch  # noqa: F401
-            torch_lib = Path(__import__("torch").__file__).parent / "lib"
+
+            torch_path = __import__("torch").__file__
+            if torch_path is None:
+                return
+            torch_lib = Path(cast(str, torch_path)).parent / "lib"
             if torch_lib.exists():
                 os.add_dll_directory(str(torch_lib))
                 print(f"✅ Added CUDA DLL path: {torch_lib}")
@@ -94,7 +113,7 @@ class WhisperRecognizer:
         if self.is_recording:
             print("Already recording!")
             return
-        
+
         self.is_recording = True
         self.stream = self.audio.open(
             format=pyaudio.paInt16,
@@ -102,15 +121,18 @@ class WhisperRecognizer:
             rate=self.sample_rate,
             input=True,
             frames_per_buffer=self.chunk_size,
-            stream_callback=self._audio_callback
+            stream_callback=self._audio_callback,
         )
         self.stream.start_stream()
-        self.processing_thread = threading.Thread(target=self._process_audio, daemon=True)
+        self.processing_thread = threading.Thread(
+            target=self._process_audio, daemon=True
+        )
         self.processing_thread.start()
         print("🚀 Whisper Recognizer Started!")
-        print(f"🎯 Model: {self.model_name}")
+        print(f"🎯 Whisper Model: {self.model_name}")
         print(f"🌍 Language: {self.language}")
         print(f"🔊 Silence Threshold: {self.silence_threshold}")
+        print(f"🖥️ Device: {self.device} | ⚙️ Compute: {self.compute_type}")
         print("💬 Speak now! Press Ctrl+C to stop.\n")
 
     def stop_recording(self):
@@ -136,9 +158,9 @@ class WhisperRecognizer:
     def _detect_speech(self, audio_data):
         """Detect speech based on audio levels."""
         audio_float = audio_data.astype(np.float32) / 32768.0
-        rms = np.sqrt(np.mean(audio_float ** 2))
+        rms = np.sqrt(np.mean(audio_float**2))
         now = time.time()
-        
+
         if rms > self.silence_threshold:
             if not self.is_speaking:
                 self.is_speaking = True
@@ -161,33 +183,76 @@ class WhisperRecognizer:
                 for _ in range(self.chunk_size):
                     if self.audio_buffer:
                         self.audio_buffer.popleft()
-                
+
                 if self.is_speaking:
-                    ctx = self._get_speech_context(min_duration=2.0)
+                    min_ctx_seconds = 2.0
+                    ctx = self._get_speech_context(min_duration=min_ctx_seconds)
                     if ctx is not None:
                         try:
                             audio_float = ctx.astype(np.float32) / 32768.0
-                            current_rms = np.sqrt(np.mean(audio_float ** 2))
-                            segments, info = self.whisper.transcribe(audio_float, language=self.language)
-                            text = " ".join([s.text for s in segments]).strip()
-                            
-                            if text and text != self.last_recognized_text:
+                            current_rms = np.sqrt(np.mean(audio_float**2))
+                            segments, info = self.whisper.transcribe(
+                                audio_float, language=self.language
+                            )
+                            seg_list = list(segments)
+                            text = " ".join([s.text for s in seg_list]).strip()
+
+                            # Suppress configured stop-phrases
+                            def _is_stop_text(t: str) -> bool:
+                                stripped = t.strip()
+                                for stop in self.stop_phrases:
+                                    if stripped == stop or stripped.endswith(stop):
+                                        return True
+                                return False
+
+                            if (
+                                text
+                                and not _is_stop_text(text)
+                                and text != self.last_recognized_text
+                            ):
                                 self.last_recognized_text = text
                                 ts = time.strftime("%H:%M:%S")
-                                dur = f"{self.continuous_speech_duration:.1f}s"
-                                
+                                # Derive duration from segment timestamps when available
+                                seg_start = (
+                                    seg_list[0].start
+                                    if seg_list
+                                    and getattr(seg_list[0], "start", None) is not None
+                                    else None
+                                )
+                                seg_end = (
+                                    seg_list[-1].end
+                                    if seg_list
+                                    and getattr(seg_list[-1], "end", None) is not None
+                                    else None
+                                )
+                                if (
+                                    seg_start is not None
+                                    and seg_end is not None
+                                    and seg_end >= seg_start
+                                ):
+                                    dur_seconds = float(seg_end - seg_start)
+                                else:
+                                    dur_seconds = float(min_ctx_seconds)
+                                dur = f"{dur_seconds:.1f}s"
+
                                 print(f"[{ts}] 🎯 {text}")
-                                print(f"    🔊 Level: {current_rms:.4f} | ⏱️ Duration: {dur}")
-                                
+                                print(
+                                    f"    🔊 Level: {current_rms:.4f} | ⏱️ Duration: {dur}"
+                                )
+
                                 self.text_buffer.append(text)
-                                
+
                                 # Call callback if provided
                                 if self.on_text_callback:
-                                    self.on_text_callback(text, current_rms, self.continuous_speech_duration)
-                                    
+                                    self.on_text_callback(
+                                        text,
+                                        current_rms,
+                                        self.continuous_speech_duration,
+                                    )
+
                         except Exception as e:
                             print(f"❌ Error processing audio: {e}")
-            
+
             time.sleep(0.1)
 
     def _get_speech_context(self, min_duration: float = 2.0):
