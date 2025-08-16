@@ -32,6 +32,31 @@ This system is designed for applications that require real-time speech processin
 - **GPU Acceleration**: CUDA support via PyTorch+cu129 (uv-configured)
 - **Low Latency Processing**: Optimized for real-time applications with configurable chunk sizes
 
+## Project Structure
+
+```
+whisper-rt-aivis/
+├── lib/                          # Core library
+│   ├── recognizer/              # Speech recognition components
+│   │   ├── __init__.py
+│   │   └── whisper_recognizer.py
+│   ├── synthesizer/             # Text-to-speech components
+│   │   ├── __init__.py
+│   │   └── synthesizer.py
+│   ├── __init__.py
+│   └── integrated_system.py     # Combined system
+├── cli/                         # Command-line tools
+│   ├── __init__.py
+│   ├── recognizer_cli.py        # Recognition CLI
+│   ├── synthesizer_cli.py       # Synthesis CLI
+│   └── integrated_cli.py        # Integrated system CLI
+├── examples/                    # Usage examples
+│   ├── README.md
+│   └── basic_usage.py
+├── pyproject.toml               # Project configuration
+└── README.md                    # This file
+```
+
 ## Installation
 
 1. **Clone the repository**:
@@ -52,101 +77,95 @@ This system is designed for applications that require real-time speech processin
 
 ## Usage
 
-### 1. Real-time Whisper Recognition
+### 1. Command Line Tools
 
-Run the standalone real-time recognizer (tools with clear hierarchy):
+The project provides three main CLI tools:
 
+#### Speech Recognition Only
 ```bash
-python realtime_whisper.py
+# Basic recognition
+whisper-recognize
+
+# With custom settings
+whisper-recognize --model large --language en --silence-threshold 0.02
 ```
 
-**Command line options**:
-- `--model`: Whisper model size (tiny, base, small, medium, large) - default: base
-- `--chunk-duration`: Audio chunk duration in seconds - default: 2.0
-- `--sample-rate`: Audio sample rate - default: 16000
-- `--language`: Language code (ja, en, zh, etc.) - default: ja
-- `--silence-threshold`: Minimum audio level for speech detection (0.0-1.0) - default: 0.01
-- `--min-speech-duration`: Minimum speech duration to process (seconds) - default: 0.5
-- `--list-devices`: List available audio input devices
-
-**Quick Start Options**:
+#### Text-to-Speech Only
 ```bash
-# High accuracy (best quality, slower)
-python realtime_whisper.py --model large --silence-threshold 0.028
+# Single text synthesis
+whisper-synthesize --text "こんにちは、世界！"
 
-# Balanced (good quality, moderate speed)
-python realtime_whisper.py --model medium --silence-threshold 0.028
-
-# Fast (lower quality, fastest speed)
-python realtime_whisper.py --model tiny --silence-threshold 0.028
+# Interactive mode
+whisper-synthesize --stdin
 ```
 
-**GPU Usage (CUDA)**:
+#### Audio Level Monitoring
 ```bash
-# VAD mode (recommended):
-uv run python realtime_whisper.py --model large --device cuda --compute-type float16 --mode vad --silence-threshold 0.028 --concise-logs --show-setup
+# Monitor for 30 seconds
+whisper-audio-monitor --duration 30
 
-# RAW mode (no gating):
-uv run python realtime_whisper.py --model large --device cuda --compute-type float16 --mode raw --concise-logs --show-setup
+# Monitor indefinitely
+whisper-audio-monitor --duration 0
 ```
-Use `--fw-vad` to enable internal faster-whisper VAD and `--dedup-seconds 3` to suppress repeated lines.
 
-**Examples**:
+#### Integrated System (Recognition + Synthesis)
 ```bash
-# Use tiny model for faster processing
-python realtime_whisper.py --model tiny
+# Complete system
+whisper-integrated
 
-# Use English language
-python realtime_whisper.py --language en
-
-# Use 1-second chunks for more responsive recognition
-python realtime_whisper.py --chunk-duration 1.0
-
-# Adjust silence threshold to reduce noise
-python realtime_whisper.py --silence-threshold 0.02
-
-# Use longer speech duration requirement
-python realtime_whisper.py --min-speech-duration 1.0
-
-# List audio devices
-python realtime_whisper.py --list-devices
+# Custom configuration
+whisper-integrated --model medium --language ja --volume 0.8
 ```
 
-### 2. Audio Level Calibration
+### 2. Library Usage
 
-Before using the real-time recognizer, calibrate your silence threshold:
+#### Basic Recognition
+```python
+from lib import WhisperRecognizer
 
+recognizer = WhisperRecognizer(
+    model_name="base",
+    language="ja",
+    silence_threshold=0.028
+)
+
+recognizer.start_recording()
+# ... do something ...
+recognizer.stop_recording()
+
+history = recognizer.get_text_history()
+```
+
+#### Basic Synthesis
+```python
+from lib import AivisSpeechSynthesizer
+
+async with AivisSpeechSynthesizer(volume=0.8) as tts:
+    await tts.synthesize_once("Hello, world!")
+```
+
+#### Integrated System
+```python
+from lib import IntegratedSpeechSystem
+
+system = IntegratedSpeechSystem(
+    whisper_model="base",
+    language="ja",
+    auto_synthesize=True
+)
+
+await system.initialize_aivisspeech()
+system.start_recording()
+# ... do something ...
+system.stop_recording()
+await system.close_async()
+```
+
+### 3. Examples
+
+Run the provided examples:
 ```bash
-# Monitor audio levels to find optimal threshold
-uv run python audio_level_monitor.py
-```
-
-This tool shows real-time audio levels and recommends a silence threshold based on your environment.
-
-### 3. Pre-configured Scripts & Structure
-
-**High Accuracy Test** (Recommended for best results):
-```bash
-uv run python test_realtime.py
-```
-Uses the `large` model with optimized settings for your environment.
-
-**Interactive Model Selection**:
-```bash
-uv run python accuracy_vs_speed.py
-```
-Choose between different accuracy vs speed trade-offs interactively.
-
-**Project Layout**:
-```
-tools/
-  recognition/        # real-time whisper tools
-  synthesis/          # AivisSpeech TTS tools
-  integrated/         # combined speech-to-speech
-
-realtime_whisper.py           # CLI entry (recognition)
-realtime_synthesis.py         # CLI entry (synthesis)
-integrated_speech_system.py   # CLI entry (integrated)
+python examples/basic_usage.py
 ```
 
 ### 4. Jupyter Notebook
