@@ -6,7 +6,12 @@ This directory contains examples demonstrating how to use the Whisper RT AivisSp
 
 **Immediate Testing** (Recommended first):
 ```bash
-uv sync && uv venv activate
+# Windows (PowerShell)
+uv sync && .venv\Scripts\activate
+whisper-recognize --model base --language ja
+
+# macOS/Linux
+uv sync && source .venv/bin/activate
 whisper-recognize --model base --language ja
 ```
 
@@ -44,7 +49,12 @@ This will test speech recognition with the base model.
 ### Speech Recognition Only
 ```bash
 # Quick test with CLI (recommended)
-uv sync && uv venv activate
+# Windows (PowerShell)
+uv sync && .venv\Scripts\activate
+whisper-recognize --model base --language ja
+
+# macOS/Linux
+uv sync && source .venv/bin/activate
 whisper-recognize --model base --language ja
 
 # Or test examples
@@ -54,7 +64,12 @@ python examples/quick_start.py
 ### Text-to-Speech Only
 ```bash
 # Quick test with CLI
-uv sync && uv venv activate
+# Windows (PowerShell)
+uv sync && .venv\Scripts\activate
+whisper-synthesize --text "Hello, world!"
+
+# macOS/Linux
+uv sync && source .venv/bin/activate
 whisper-synthesize --text "Hello, world!"
 
 # Or test examples
@@ -64,7 +79,12 @@ python examples/quick_start.py
 ### Integrated System
 ```bash
 # Quick test with CLI
-uv sync && uv venv activate
+# Windows (PowerShell)
+uv sync && .venv\Scripts\activate
+whisper-integrated --whisper-model base --auto-synthesize
+
+# macOS/Linux
+uv sync && source .venv/bin/activate
 whisper-integrated --whisper-model base --auto-synthesize
 
 # Or test examples
@@ -128,7 +148,7 @@ await system.close_async()
 
 ## CLI Tools
 
-The library provides command-line tools that work after `uv sync && uv venv activate`:
+The library provides command-line tools that work after activating the virtual environment:
 
 - `whisper-recognize` - Speech recognition only
 - `whisper-synthesize` - Text-to-speech only  
@@ -136,7 +156,9 @@ The library provides command-line tools that work after `uv sync && uv venv acti
 
 ## Recommended Workflow
 
-1. **Setup**: `uv sync && uv venv activate`
+1. **Setup**: 
+   - Windows (PowerShell): `uv sync && .venv\Scripts\activate`
+   - macOS/Linux: `uv sync && source .venv/bin/activate`
 2. **Test Recognition**: `whisper-recognize --model base`
 3. **Test Synthesis**: `whisper-synthesize --text "Test"`
 4. **Test Integrated**: `whisper-integrated --auto-synthesize`

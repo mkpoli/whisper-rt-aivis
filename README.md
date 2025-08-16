@@ -81,7 +81,11 @@ whisper-rt-aivis/
 
 **Setup and activate virtual environment:**
 ```bash
-uv sync && uv venv activate
+# Windows (PowerShell)
+uv sync && .venv\Scripts\activate
+
+# macOS/Linux  
+uv sync && source .venv/bin/activate
 ```
 
 **Test the system:**

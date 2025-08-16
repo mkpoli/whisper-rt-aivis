@@ -27,10 +27,13 @@ def main():
         print("  python run_examples.py gpu")
         print()
         print("💡 For production use, prefer CLI tools:")
-        print("  uv sync && uv venv activate")
+        print("  # Windows (PowerShell):")
+        print("  uv sync && .venv\\Scripts\\activate")
         print("  whisper-recognize --model base")
         print("  whisper-synthesize --text 'Hello'")
         print("  whisper-integrated --auto-synthesize")
+        print("  # macOS/Linux:")
+        print("  uv sync && source .venv/bin/activate")
         return
 
     example = sys.argv[1].lower()
