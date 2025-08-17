@@ -7,7 +7,8 @@ Combines Whisper recognition with AivisSpeech synthesis in a unified system.
 
 import asyncio
 import concurrent.futures as cf
-from typing import Optional
+import time
+from typing import Optional, Dict
 
 from .recognizer.whisper_recognizer import WhisperRecognizer
 from .synthesizer.synthesizer import AivisSpeechSynthesizer
@@ -22,6 +23,7 @@ class IntegratedSpeechSystem:
         speaker_id: int = 1431611904,  # まい speaker
         language: str = "ja",
         silence_threshold: float = 0.028,
+        chunk_duration: float = 2.0,
         auto_synthesize: bool = True,
         volume: float = 1.0,
         device: str = "cpu",
@@ -49,6 +51,7 @@ class IntegratedSpeechSystem:
             model_name=whisper_model,
             language=language,
             silence_threshold=silence_threshold,
+            chunk_duration=chunk_duration,
             device=device,
             compute_type=compute_type,
             on_text_callback=self._on_text_recognized if auto_synthesize else None,
@@ -62,6 +65,12 @@ class IntegratedSpeechSystem:
         self.loop: Optional[asyncio.AbstractEventLoop] = None
         # Track pending synthesis tasks scheduled onto the loop
         self._pending_synth_futures: set[cf.Future] = set()
+        # Synthesis dedupe and gating
+        self._recent_synth: Dict[str, float] = {}
+        self._suppress_repeat_seconds: float = 6.0
+        self._sentence_enders = set(
+            [".", "!", "?", "。", "！", "？", "…", "♪", "〜", "～"]
+        )
 
     async def initialize_aivisspeech(self, endpoint: str = "http://localhost:10101"):
         """Initialize AivisSpeech synthesizer."""
@@ -98,18 +107,37 @@ class IntegratedSpeechSystem:
 
     def _on_text_recognized(self, text: str, rms: float, duration: float):
         """Callback when text is recognized - schedule synthesis if enabled."""
-        if self.auto_synthesize and self.synthesizer and self.loop:
-            # Schedule synthesis on the main event loop
-            fut = asyncio.run_coroutine_threadsafe(
-                self._synthesize_text(text), self.loop
-            )
-            # Track and auto-remove when done
-            self._pending_synth_futures.add(fut)
+        if not (self.auto_synthesize and self.synthesizer and self.loop):
+            return
 
-            def _cleanup(_):
-                self._pending_synth_futures.discard(fut)
+        # Gate: Only synthesize likely-complete sentences or on end-of-speech.
+        # When EOS happens, recognizer.is_speaking becomes False before final emit.
+        is_speaking = getattr(self.recognizer, "is_speaking", True)
+        ends_sentence = bool(text) and text[-1] in self._sentence_enders
+        if is_speaking and not ends_sentence:
+            return
 
-            fut.add_done_callback(_cleanup)
+        # Dedupe: suppress repeats within a short window
+        now = time.time()
+        last_time = self._recent_synth.get(text)
+        if last_time is not None and (now - last_time) < self._suppress_repeat_seconds:
+            return
+        self._recent_synth[text] = now
+
+        # Cancel any pending synth tasks to avoid overlapping audio of superseded text
+        for pending in list(self._pending_synth_futures):
+            if not pending.done():
+                pending.cancel()
+            self._pending_synth_futures.discard(pending)
+
+        # Schedule synthesis on the main event loop
+        fut = asyncio.run_coroutine_threadsafe(self._synthesize_text(text), self.loop)
+        self._pending_synth_futures.add(fut)
+
+        def _cleanup(_):
+            self._pending_synth_futures.discard(fut)
+
+        fut.add_done_callback(_cleanup)
 
     async def _synthesize_text(self, text: str):
         """Synthesize recognized text to speech."""

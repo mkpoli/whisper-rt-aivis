@@ -36,6 +36,12 @@ async def run_cli():
         help="RMS threshold for speech detection",
     )
     parser.add_argument(
+        "--chunk-duration",
+        type=float,
+        default=2.0,
+        help="Audio chunk duration in seconds",
+    )
+    parser.add_argument(
         "--no-speak", action="store_true", help="Disable auto synthesis"
     )
     parser.add_argument(
@@ -57,6 +63,7 @@ async def run_cli():
         speaker_id=args.speaker_id,
         language=args.language,
         silence_threshold=args.silence_threshold,
+        chunk_duration=args.chunk_duration,
         auto_synthesize=(not args.no_speak),
         volume=args.volume,
         device=args.device,
