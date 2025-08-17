@@ -77,6 +77,15 @@ whisper-rt-aivis/
 
 ## Usage
 
+### 0. TL;DR
+
+```bash
+uv sync && .venv\Scripts\activate
+whisper-recognize --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028
+whisper-synthesize --text "Hello, world!"
+whisper-integrated --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028
+```
+
 ### 1. Quick Start
 
 **Setup and activate virtual environment:**
