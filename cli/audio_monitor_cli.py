@@ -9,8 +9,12 @@ import asyncio
 import argparse
 import signal
 import sys
+import warnings
 
 from .audio_level_monitor import AudioLevelMonitor
+
+# Suppress noisy warnings by default
+warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 
 def signal_handler(signum, frame):

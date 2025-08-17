@@ -8,8 +8,12 @@ Command-line interface for text-to-speech synthesis.
 import asyncio
 import argparse
 import sys
+import warnings
 
 from lib.synthesizer.synthesizer import AivisSpeechSynthesizer
+
+# Suppress noisy warnings by default
+warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 
 async def main():

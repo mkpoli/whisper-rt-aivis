@@ -9,6 +9,7 @@ import asyncio
 import argparse
 import signal
 import sys
+import warnings
 
 from lib.recognizer.whisper_recognizer import WhisperRecognizer
 
@@ -53,6 +54,9 @@ async def main():
         "--compute-type", default="int8", help="Compute type for faster-whisper"
     )
     args = parser.parse_args()
+
+    # Suppress noisy warnings by default
+    warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
     # Set up signal handling
     signal.signal(signal.SIGINT, signal_handler)

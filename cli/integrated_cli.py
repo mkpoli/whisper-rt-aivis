@@ -7,8 +7,12 @@ Command-line interface for the complete speech recognition + synthesis system.
 
 import asyncio
 import argparse
+import warnings
 
 from lib.integrated_system import IntegratedSpeechSystem
+
+# Suppress noisy warnings by default
+warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 
 async def run_cli():
