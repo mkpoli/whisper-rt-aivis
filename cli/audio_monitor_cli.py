@@ -25,20 +25,23 @@ def signal_handler(signum, frame):
 
 async def main():
     parser = argparse.ArgumentParser(description="Audio Level Monitor for Calibration")
-    parser.add_argument("--duration", type=int, default=30, 
-                       help="Monitoring duration in seconds (0 for infinite)")
-    parser.add_argument("--sample-rate", type=int, default=16000, 
-                       help="Audio sample rate")
-    parser.add_argument("--chunk-size", type=int, default=1024, 
-                       help="Audio chunk size")
+    parser.add_argument(
+        "--duration",
+        type=int,
+        default=30,
+        help="Monitoring duration in seconds (0 for infinite)",
+    )
+    parser.add_argument(
+        "--sample-rate", type=int, default=16000, help="Audio sample rate"
+    )
+    parser.add_argument("--chunk-size", type=int, default=1024, help="Audio chunk size")
     args = parser.parse_args()
 
     # Set up signal handling
     signal.signal(signal.SIGINT, signal_handler)
 
     monitor = AudioLevelMonitor(
-        sample_rate=args.sample_rate,
-        chunk_size=args.chunk_size
+        sample_rate=args.sample_rate, chunk_duration=args.chunk_size / args.sample_rate
     )
 
     try:
@@ -47,24 +50,22 @@ async def main():
             print("💡 Speak normally to see your speech levels")
             print("💡 Stay quiet to see your silence levels")
             print("💡 Press Ctrl+C to stop early\n")
-            
+
             await asyncio.sleep(args.duration)
         else:
             print("🔊 Monitoring audio levels indefinitely...")
             print("💡 Speak normally to see your speech levels")
             print("💡 Stay quiet to see your silence levels")
             print("💡 Press Ctrl+C to stop\n")
-            
+
             # Keep running until interrupted
             while True:
                 await asyncio.sleep(1)
-                
+
     except KeyboardInterrupt:
         print("\n🛑 Interrupted by user")
     finally:
-        monitor.stop()
-        print("\n📊 Final Statistics:")
-        monitor.print_statistics()
+        monitor.stop_monitoring()
 
 
 def main_sync():
