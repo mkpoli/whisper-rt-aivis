@@ -16,19 +16,40 @@ warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 
 async def run_cli():
-    parser = argparse.ArgumentParser(description="Integrated real-time recognition + synthesis")
-    parser.add_argument("--model", default="large", choices=["tiny", "base", "small", "medium", "large"], 
-                       help="Whisper model")
-    parser.add_argument("--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID")
+    parser = argparse.ArgumentParser(
+        description="Integrated real-time recognition + synthesis"
+    )
+    parser.add_argument(
+        "--model",
+        default="large",
+        choices=["tiny", "base", "small", "medium", "large"],
+        help="Whisper model",
+    )
+    parser.add_argument(
+        "--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID"
+    )
     parser.add_argument("--language", default="ja", help="Recognition language")
-    parser.add_argument("--silence-threshold", type=float, default=0.028, 
-                       help="RMS threshold for speech detection")
-    parser.add_argument("--no-speak", action="store_true", help="Disable auto synthesis")
-    parser.add_argument("--volume", type=float, default=1.0, help="Playback volume (0.0-2.0)")
-    parser.add_argument("--endpoint", default="http://localhost:10101", help="AivisSpeech endpoint")
-    parser.add_argument("--device", default="cpu", choices=["cpu", "cuda"], 
-                       help="faster-whisper device")
-    parser.add_argument("--compute-type", default="int8", help="faster-whisper compute type")
+    parser.add_argument(
+        "--silence-threshold",
+        type=float,
+        default=0.028,
+        help="RMS threshold for speech detection",
+    )
+    parser.add_argument(
+        "--no-speak", action="store_true", help="Disable auto synthesis"
+    )
+    parser.add_argument(
+        "--volume", type=float, default=1.0, help="Playback volume (0.0-2.0)"
+    )
+    parser.add_argument(
+        "--endpoint", default="http://localhost:10101", help="AivisSpeech endpoint"
+    )
+    parser.add_argument(
+        "--device", default="cpu", choices=["cpu", "cuda"], help="faster-whisper device"
+    )
+    parser.add_argument(
+        "--compute-type", default="int8", help="faster-whisper compute type"
+    )
     args = parser.parse_args()
 
     system = IntegratedSpeechSystem(
@@ -41,13 +62,13 @@ async def run_cli():
         device=args.device,
         compute_type=args.compute_type,
     )
-    
+
     # Bind the loop for cross-thread scheduling
     system.loop = asyncio.get_running_loop()
 
     if not await system.initialize_aivisspeech(endpoint=args.endpoint):
         return 1
-    
+
     try:
         system.start_recording()
         while True:
@@ -57,7 +78,7 @@ async def run_cli():
     finally:
         system.stop_recording()
         await system.close_async()
-    
+
     return 0
 
 
