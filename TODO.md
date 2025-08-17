@@ -1,0 +1,4 @@
+- [ ] set default voice to Annelli
+- [ ] add voice selection if not provided
+- [ ] improve delay
+- [ ] use llm to copyedit
