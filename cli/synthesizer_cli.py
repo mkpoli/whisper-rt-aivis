@@ -18,18 +18,28 @@ warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 async def main():
     parser = argparse.ArgumentParser(description="Real-time AivisSpeech TTS")
-    parser.add_argument("--endpoint", default="http://localhost:10101", help="AivisSpeech HTTP endpoint")
-    parser.add_argument("--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID")
-    parser.add_argument("--volume", type=float, default=1.0, help="Playback volume (0.0 - 2.0)")
+    parser.add_argument(
+        "--endpoint", default="http://localhost:10101", help="AivisSpeech HTTP endpoint"
+    )
+    parser.add_argument(
+        "--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID"
+    )
+    parser.add_argument(
+        "--volume", type=float, default=1.0, help="Playback volume (0.0 - 2.0)"
+    )
     parser.add_argument("--text", type=str, help="Synthesize a single line of text")
-    parser.add_argument("--stdin", action="store_true", help="Read lines from stdin and synthesize each")
+    parser.add_argument(
+        "--stdin", action="store_true", help="Read lines from stdin and synthesize each"
+    )
     args = parser.parse_args()
 
     if not args.text and not args.stdin:
         print("❌ Provide --text or --stdin")
         return 1
 
-    async with AivisSpeechSynthesizer(endpoint=args.endpoint, speaker_id=args.speaker_id, volume=args.volume) as tts:
+    async with AivisSpeechSynthesizer(
+        endpoint=args.endpoint, speaker_id=args.speaker_id, volume=args.volume
+    ) as tts:
         if args.text:
             await tts.synthesize_once(args.text)
         if args.stdin:
