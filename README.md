@@ -83,7 +83,7 @@ whisper-rt-aivis/
 uv sync && .venv\Scripts\activate
 whisper-recognize --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028
 whisper-synthesize --text "Hello, world!"
-whisper-integrated --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028
+whisper-integrated --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028 --chunk-duration 3
 ```
 
 ### 1. Quick Start
