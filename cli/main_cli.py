@@ -609,18 +609,6 @@ def run_interactive_mode():
             print("\n👋 Goodbye!")
             break
 
-        # Ask if user wants to continue
-        try:
-            continue_choice = (
-                input("\nContinue with another tool? (y/n): ").strip().lower()
-            )
-            if continue_choice not in ["y", "yes"]:
-                print("👋 Goodbye!")
-                break
-        except (EOFError, KeyboardInterrupt):
-            print("\n👋 Goodbye!")
-            break
-
 
 def main():
     """Main CLI entry point."""
