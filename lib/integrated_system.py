@@ -20,7 +20,7 @@ class IntegratedSpeechSystem:
     def __init__(
         self,
         whisper_model: str = "large",
-        speaker_id: int = 1431611904,  # まい speaker
+        speaker_id: int = 888753760,
         language: str = "ja",
         silence_threshold: float = 0.028,
         chunk_duration: float = 2.0,

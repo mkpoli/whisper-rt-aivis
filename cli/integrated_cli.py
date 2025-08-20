@@ -26,7 +26,7 @@ async def run_cli():
         help="Whisper model",
     )
     parser.add_argument(
-        "--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID"
+        "--speaker-id", type=int, default=888753760, help="AivisSpeech speaker ID"
     )
     parser.add_argument("--language", default="ja", help="Recognition language")
     parser.add_argument(

@@ -22,7 +22,7 @@ async def main():
         "--endpoint", default="http://localhost:10101", help="AivisSpeech HTTP endpoint"
     )
     parser.add_argument(
-        "--speaker-id", type=int, default=1431611904, help="AivisSpeech speaker ID"
+        "--speaker-id", type=int, default=888753760, help="AivisSpeech speaker ID"
     )
     parser.add_argument(
         "--volume", type=float, default=1.0, help="Playback volume (0.0 - 2.0)"

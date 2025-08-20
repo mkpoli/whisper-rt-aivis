@@ -21,7 +21,7 @@ class AivisSpeechSynthesizer:
     def __init__(
         self,
         endpoint: str = "http://localhost:10101",
-        speaker_id: int = 1431611904,
+        speaker_id: int = 888753760,
         volume: float = 1.0,
     ):
         self.endpoint = endpoint
