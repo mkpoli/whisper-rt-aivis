@@ -81,15 +81,8 @@ def _get_section_nodes(doc: Any, section_name: str) -> Iterable[Any]:
     section_node = _find_child(doc, section_name)
     if section_node is not None and getattr(section_node, "children", None):
         return section_node.children
-
-    config_node = _find_child(doc, "config")
-    if config_node is not None:
-        inner = _find_child(config_node, section_name)
-        if inner is not None and getattr(inner, "children", None):
-            return inner.children
-
-    # Fallback: treat top-level nodes as kv for this section
-    return getattr(doc, "children", []) or getattr(doc, "nodes", [])
+    # If not found, return empty to signal missing section
+    return []
 
 
 def load_kdl_config(path: str, section: str) -> dict[str, Any]:
@@ -102,7 +95,10 @@ def load_kdl_config(path: str, section: str) -> dict[str, Any]:
     with open(path, "r", encoding="utf-8") as f:
         source = f.read()
     doc = ckdl.parse(source)  # type: ignore[attr-defined]
-    return _collect_node_kv(_get_section_nodes(doc, section))
+    nodes = list(_get_section_nodes(doc, section))
+    if not nodes:
+        raise ValueError(f"Missing section: {section}")
+    return _collect_node_kv(nodes)
 
 
 def list_present_sections(path: str) -> list[str]:
@@ -118,21 +114,19 @@ def list_present_sections(path: str) -> list[str]:
     doc = ckdl.parse(source)  # type: ignore[attr-defined]
 
     candidates = ["recognizer", "synthesizer", "integrated"]
-    present: set[str] = set()
+    present: list[str] = []
 
-    # Top-level
+    # Only consider top-level nodes; nested config { ... } is not supported
     for name in candidates:
         if _find_child(doc, name) is not None:
-            present.add(name)
+            present.append(name)
 
-    # Inside config { }
-    cfg = _find_child(doc, "config")
-    if cfg is not None:
-        for name in candidates:
-            if _find_child(cfg, name) is not None:
-                present.add(name)
+    if not present:
+        raise ValueError(
+            "Config invalid: no 'recognizer', 'synthesizer', or 'integrated' section found"
+        )
 
-    return [name for name in candidates if name in present]
+    return present
 
 
 def apply_config_over_args(
@@ -205,9 +199,18 @@ def compose_integrated_config(path: str) -> dict[str, Any]:
     Precedence: integrated > recognizer/synthesizer
     """
     # Load available sections; missing sections yield empty dicts
-    rec = _normalize_keys(load_kdl_config(path, "recognizer"))
-    syn = _normalize_keys(load_kdl_config(path, "synthesizer"))
-    integ = _normalize_keys(load_kdl_config(path, "integrated"))
+    try:
+        rec = _normalize_keys(load_kdl_config(path, "recognizer"))
+    except Exception:
+        rec = {}
+    try:
+        syn = _normalize_keys(load_kdl_config(path, "synthesizer"))
+    except Exception:
+        syn = {}
+    try:
+        integ = _normalize_keys(load_kdl_config(path, "integrated"))
+    except Exception:
+        integ = {}
 
     combined: dict[str, Any] = {}
     combined.update(rec)

@@ -1,26 +1,22 @@
 // Default configuration for whisper-rt-aivis
-// See KDL: https://kdl.dev and Python parser: https://github.com/tabatkins/kdlpy
+// See KDL: https://kdl.dev ; Parser: https://github.com/tjol/ckdl
 
-config {
-  recognizer {
-    model "large"
-    language "ja"
-    device "cpu"
-    compute_type "int8"
-    silence_threshold 0.028
-    chunk_duration 2.0
-    sample_rate 16000
-  }
-
-  synthesizer {
-    endpoint "http://localhost:10101"
-    speaker 888753760
-    volume 1.0
-  }
-
-  integrated {
-    auto_synthesize #true
-  }
+recognizer {
+  model "large"
+  language "ja"
+  device "cpu"
+  compute_type "int8"
+  silence_threshold 0.028
+  chunk_duration 2.0
+  sample_rate 16000
 }
 
+synthesizer {
+  endpoint "http://localhost:10101"
+  speaker 888753760
+  volume 1.0
+}
 
+integrated {
+  auto_synthesize #true
+}
