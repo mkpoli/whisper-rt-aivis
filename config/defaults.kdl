@@ -19,15 +19,6 @@ config {
   }
 
   integrated {
-    model "large"
-    language "ja"
-    device "cpu"
-    compute_type "int8"
-    silence_threshold 0.028
-    chunk_duration 2.0
-    speaker 888753760
-    volume 1.0
-    endpoint "http://localhost:10101"
     auto_synthesize #true
   }
 }

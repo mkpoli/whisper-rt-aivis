@@ -160,15 +160,7 @@ def apply_config_over_args(
     # Normalize keys and apply
     for k, v in config.items():
         # Map alternative key names commonly used in KDL files
-        normalized_key = {
-            "speaker": "speaker_id",
-            "speaker-id": "speaker_id",
-            "compute-type": "compute_type",
-            "silence-threshold": "silence_threshold",
-            "chunk-duration": "chunk_duration",
-            "sample-rate": "sample_rate",
-            "auto-synthesize": "auto_synthesize",
-        }.get(k, k)
+        normalized_key = _NORMALIZE_KEY_MAP.get(k, k)
 
         dest = mapping.get(normalized_key, normalized_key)
 
@@ -184,3 +176,41 @@ def apply_config_over_args(
             setattr(args, dest, v)
 
     return args
+
+
+# Common key normalization used across loaders and appliers
+_NORMALIZE_KEY_MAP: dict[str, str] = {
+    "speaker": "speaker_id",
+    "speaker-id": "speaker_id",
+    "compute-type": "compute_type",
+    "silence-threshold": "silence_threshold",
+    "chunk-duration": "chunk_duration",
+    "sample-rate": "sample_rate",
+    "auto-synthesize": "auto_synthesize",
+}
+
+
+def _normalize_keys(d: dict[str, Any]) -> dict[str, Any]:
+    if not d:
+        return {}
+    out: dict[str, Any] = {}
+    for k, v in d.items():
+        out[_NORMALIZE_KEY_MAP.get(k, k)] = v
+    return out
+
+
+def compose_integrated_config(path: str) -> dict[str, Any]:
+    """Compose integrated config by merging recognizer + synthesizer + integrated overrides.
+
+    Precedence: integrated > recognizer/synthesizer
+    """
+    # Load available sections; missing sections yield empty dicts
+    rec = _normalize_keys(load_kdl_config(path, "recognizer"))
+    syn = _normalize_keys(load_kdl_config(path, "synthesizer"))
+    integ = _normalize_keys(load_kdl_config(path, "integrated"))
+
+    combined: dict[str, Any] = {}
+    combined.update(rec)
+    combined.update(syn)
+    combined.update(integ)
+    return combined

@@ -18,7 +18,11 @@ from .integrated_cli import run_cli as run_integrated
 from .recognizer_cli import main as run_recognizer
 from .synthesizer_cli import main as run_synthesizer
 from .audio_monitor_cli import main_sync as run_audio_monitor
-from lib.config_kdl import list_present_sections, load_kdl_config
+from lib.config_kdl import (
+    list_present_sections,
+    load_kdl_config,
+    compose_integrated_config,
+)
 
 
 def print_banner():
@@ -415,6 +419,11 @@ def print_config_summary(path: str, mode: str, cfg: Dict[str, Any]) -> None:
         show("Endpoint", _get_first_present(cfg, "endpoint"))
         show("Speaker ID", _get_first_present(cfg, "speaker_id", "speaker"))
         show("Volume", _get_first_present(cfg, "volume"))
+        if mode == "integrated":
+            show(
+                "Auto-synthesize",
+                _get_first_present(cfg, "auto_synthesize", "auto-synthesize"),
+            )
 
     print("=" * 80)
 
@@ -511,7 +520,7 @@ def _run_mode_with_config(mode: str, cfg: Dict[str, Any]) -> int:
         filled = _prompt_missing_common(cfg)
         filled = _prompt_missing_synthesis(filled)
         original_argv = sys.argv.copy()
-        sys.argv = [
+        argv = [
             "whisper-integrated",
             "--model",
             str(filled["model"]),
@@ -532,6 +541,13 @@ def _run_mode_with_config(mode: str, cfg: Dict[str, Any]) -> int:
             "--endpoint",
             str(filled["endpoint"]),
         ]
+        # Auto-synthesize control (maps to --no-speak when false)
+        auto_syn = filled.get("auto_synthesize")
+        if auto_syn is None:
+            auto_syn = filled.get("auto-synthesize")
+        if auto_syn is not None and (not bool(auto_syn)):
+            argv.append("--no-speak")
+        sys.argv = argv
         try:
             return asyncio.run(run_integrated())
         finally:
@@ -887,7 +903,10 @@ def main():
 
         if chosen_mode:
             try:
-                config_map = load_kdl_config(args.config, section=chosen_mode)
+                if chosen_mode == "integrated":
+                    config_map = compose_integrated_config(args.config)
+                else:
+                    config_map = load_kdl_config(args.config, section=chosen_mode)
                 print_config_summary(args.config, chosen_mode, config_map)
             except Exception as e:
                 print(f"⚠️  Failed to load section '{chosen_mode}': {e}")
