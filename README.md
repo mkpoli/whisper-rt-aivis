@@ -81,6 +81,11 @@ whisper-rt-aivis/
 
 ```bash
 uv sync && .venv\Scripts\activate
+
+# Interactive configuration mode - configure and run tools
+whisper-aivis
+
+# Direct tool execution
 whisper-recognize --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028
 whisper-synthesize --text "Hello, world!"
 whisper-integrated --model large --language ja --device cuda --compute-type float16 --silence-threshold 0.028 --chunk-duration 3
@@ -111,12 +116,41 @@ whisper-integrated --whisper-model base --auto-synthesize
 
 ### 2. Command Line Tools
 
-The project provides three main CLI tools (after `uv venv activate`):
+The project provides several CLI tools (after `uv venv activate`):
+
+#### Main Interactive CLI
+```bash
+# Interactive configuration mode (default) - configure and run tools
+whisper-aivis
+
+# Explicit interactive mode
+whisper-aivis -i
+
+# Direct tool execution with defaults
+whisper-aivis --integrated      # Run integrated system with defaults
+whisper-aivis --recognize       # Run recognition with defaults
+whisper-aivis --synthesize      # Run synthesis with defaults
+whisper-aivis --monitor         # Run audio monitor with defaults
+```
+
+**Interactive mode features:**
+- **Whisper Model Selection**: Choose from tiny/base/small/medium/large
+- **Language Configuration**: Select from ja/en/zh/ko or enter custom code
+- **Device Selection**: Choose between CPU and CUDA GPU acceleration
+- **Compute Type**: Select int8/float16/float32 for speed vs accuracy
+- **Silence Threshold**: Configure speech detection sensitivity (0.01-0.1)
+- **Chunk Duration**: Set audio processing chunks (1.0-5.0 seconds)
+- **Volume Control**: Adjust playback volume (0.0-2.0)
+- **Speaker ID**: Configure AivisSpeech speaker identity
+- **Endpoint**: Set custom AivisSpeech server URL
 
 #### Speech Recognition Only
 ```bash
 # Basic recognition
 whisper-recognize
+
+# Interactive mode
+whisper-recognize -i
 
 # With custom settings
 whisper-recognize --model large --language en --silence-threshold 0.02
@@ -132,6 +166,9 @@ whisper-synthesize --text "こんにちは、世界！"
 
 # Interactive mode
 whisper-synthesize --stdin
+
+# Interactive flag
+whisper-synthesize -i
 ```
 
 #### Audio Level Monitoring
@@ -141,12 +178,18 @@ whisper-audio-monitor --duration 30
 
 # Monitor indefinitely
 whisper-audio-monitor --duration 0
+
+# Interactive mode
+whisper-audio-monitor -i
 ```
 
 #### Integrated System (Recognition + Synthesis)
 ```bash
 # Complete system
 whisper-integrated
+
+# Interactive mode
+whisper-integrated -i
 
 # Custom configuration
 whisper-integrated --model medium --language ja --volume 0.8

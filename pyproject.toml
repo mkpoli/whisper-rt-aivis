@@ -16,6 +16,7 @@ dependencies = [
 ]
 
 [project.scripts]
+whisper-aivis = "cli.main_cli:main"
 whisper-recognize = "cli.recognizer_cli:main_sync"
 whisper-synthesize = "cli.synthesizer_cli:main_sync"
 whisper-integrated = "cli.integrated_cli:main"
