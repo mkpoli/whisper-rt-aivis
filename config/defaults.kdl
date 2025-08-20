@@ -5,19 +5,19 @@ mode #null // #null means choose mode from interactive CLI
 // mode integrated // or use one of [recognizer, synthesizer, integrated]
 
 recognizer {
-  model "large"
-  language "ja"
-  device "cpu"
-  compute_type "int8"
-  silence_threshold 0.028
-  chunk_duration 2.0
-  sample_rate 16000
+  model large // [tiny, base, small, medium, large]
+  language ja // [en, ja, zh, ...], now AivisSpeech only supports ja (and Japanglish)
+  device cpu // [cpu, cuda]
+  compute_type int8 // [int8, float16, float32]
+  silence_threshold 0.028 // 0.028 is a good default for most cases 
+  chunk_duration 2.0 // 2.0 seconds is a good default for most cases
+  sample_rate 16000 // 16000 is a good default for most cases
 }
 
 synthesizer {
-  endpoint "http://localhost:10101"
-  speaker 888753760
-  volume 1.0
+  endpoint "http://localhost:10101" // AivisSpeech VOICEVOX API endpoint
+  speaker 888753760 // AivisSpeech speaker ID
+  volume 1.0 // 1.0 is a good default for most cases
 }
 
 integrated {
