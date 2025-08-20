@@ -11,6 +11,7 @@ import sys
 import warnings
 
 from lib.synthesizer.synthesizer import AivisSpeechSynthesizer
+from lib.config_kdl import load_kdl_config, apply_config_over_args
 
 # Suppress noisy warnings by default
 warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
@@ -18,6 +19,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 
 async def main():
     parser = argparse.ArgumentParser(description="Real-time AivisSpeech TTS")
+    parser.add_argument(
+        "--config", type=str, help="Path to KDL config file (section: synthesizer)"
+    )
     parser.add_argument(
         "--endpoint", default="http://localhost:10101", help="AivisSpeech HTTP endpoint"
     )
@@ -32,6 +36,23 @@ async def main():
         "--stdin", action="store_true", help="Read lines from stdin and synthesize each"
     )
     args = parser.parse_args()
+
+    # Build presence map for precedence
+    presence = {}
+    for action in parser._actions:  # type: ignore[attr-defined]
+        if not getattr(action, "option_strings", None):
+            continue
+        dest = getattr(action, "dest", None)
+        if not dest:
+            continue
+        presence[dest] = any(opt in sys.argv for opt in action.option_strings)
+
+    if getattr(args, "config", None):
+        try:
+            cfg = load_kdl_config(args.config, section="synthesizer")
+            args = apply_config_over_args(args, cfg, flag_presence_lookup=presence)
+        except Exception as e:
+            print(f"⚠️  Failed to load config: {e}")
 
     if not args.text and not args.stdin:
         print("❌ Provide --text or --stdin")

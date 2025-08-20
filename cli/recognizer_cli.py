@@ -12,6 +12,7 @@ import sys
 import warnings
 
 from lib.recognizer.whisper_recognizer import WhisperRecognizer
+from lib.config_kdl import load_kdl_config, apply_config_over_args
 
 
 def signal_handler(signum, frame):
@@ -22,6 +23,9 @@ def signal_handler(signum, frame):
 
 async def main():
     parser = argparse.ArgumentParser(description="Real-time Whisper Speech Recognition")
+    parser.add_argument(
+        "--config", type=str, help="Path to KDL config file (section: recognizer)"
+    )
     parser.add_argument(
         "--model",
         default="large",
@@ -54,6 +58,23 @@ async def main():
         "--compute-type", default="int8", help="Compute type for faster-whisper"
     )
     args = parser.parse_args()
+
+    # Build presence map for precedence
+    presence = {}
+    for action in parser._actions:  # type: ignore[attr-defined]
+        if not getattr(action, "option_strings", None):
+            continue
+        dest = getattr(action, "dest", None)
+        if not dest:
+            continue
+        presence[dest] = any(opt in sys.argv for opt in action.option_strings)
+
+    if getattr(args, "config", None):
+        try:
+            cfg = load_kdl_config(args.config, section="recognizer")
+            args = apply_config_over_args(args, cfg, flag_presence_lookup=presence)
+        except Exception as e:
+            print(f"⚠️  Failed to load config: {e}")
 
     # Suppress noisy warnings by default
     warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")

@@ -18,6 +18,7 @@ from .integrated_cli import run_cli as run_integrated
 from .recognizer_cli import main as run_recognizer
 from .synthesizer_cli import main as run_synthesizer
 from .audio_monitor_cli import main_sync as run_audio_monitor
+from lib.config_kdl import list_present_sections, load_kdl_config
 
 
 def print_banner():
@@ -374,6 +375,172 @@ def configure_integrated_options() -> Dict[str, Any]:
     return config
 
 
+def _get_first_present(cfg: Dict[str, Any], *keys: str) -> Optional[Any]:
+    for k in keys:
+        if k in cfg:
+            return cfg[k]
+    return None
+
+
+def print_config_summary(path: str, mode: str, cfg: Dict[str, Any]) -> None:
+    """Pretty-print a summary of values loaded from KDL config.
+
+    Shows only the keys relevant to the chosen mode and indicates which
+    values are missing and will be prompted interactively.
+    """
+    print(f"\n🔧 Loaded config from {path}:")
+    print(f"   Mode: {mode}")
+
+    def show(label: str, value: Optional[Any]):
+        if value is None:
+            print(f"   {label}: (will prompt)")
+        else:
+            print(f"   {label}: {value}")
+
+    if mode == "recognizer" or mode == "integrated":
+        show("Model", _get_first_present(cfg, "model"))
+        show("Language", _get_first_present(cfg, "language"))
+        show("Device", _get_first_present(cfg, "device"))
+        show("Compute Type", _get_first_present(cfg, "compute_type", "compute-type"))
+        show(
+            "Silence Threshold",
+            _get_first_present(cfg, "silence_threshold", "silence-threshold"),
+        )
+        show(
+            "Chunk Duration",
+            _get_first_present(cfg, "chunk_duration", "chunk-duration"),
+        )
+
+    if mode == "synthesizer" or mode == "integrated":
+        show("Endpoint", _get_first_present(cfg, "endpoint"))
+        show("Speaker ID", _get_first_present(cfg, "speaker_id", "speaker"))
+        show("Volume", _get_first_present(cfg, "volume"))
+
+    print("=" * 80)
+
+
+def _prompt_missing_common(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    updated = dict(cfg)
+    if "model" not in updated:
+        updated["model"] = get_whisper_model()
+    if "language" not in updated:
+        updated["language"] = get_language()
+    if "device" not in updated:
+        updated["device"] = get_device()
+    if "compute_type" not in updated and "compute-type" not in cfg:
+        updated["compute_type"] = get_compute_type()
+    # normalize
+    if "compute-type" in updated and "compute_type" not in updated:
+        updated["compute_type"] = updated.pop("compute-type")
+    if "silence_threshold" not in updated and "silence-threshold" not in cfg:
+        updated["silence_threshold"] = get_silence_threshold()
+    if "silence-threshold" in updated and "silence_threshold" not in updated:
+        updated["silence_threshold"] = updated.pop("silence-threshold")
+    if "chunk_duration" not in updated and "chunk-duration" not in cfg:
+        updated["chunk_duration"] = get_chunk_duration()
+    if "chunk-duration" in updated and "chunk_duration" not in updated:
+        updated["chunk_duration"] = updated.pop("chunk-duration")
+    return updated
+
+
+def _prompt_missing_synthesis(cfg: Dict[str, Any]) -> Dict[str, Any]:
+    updated = dict(cfg)
+    if "endpoint" not in updated:
+        updated["endpoint"] = get_endpoint()
+    # normalize speaker key
+    speaker_key = (
+        "speaker_id"
+        if "speaker_id" in updated
+        else ("speaker" if "speaker" in updated else None)
+    )
+    if speaker_key is None:
+        updated["speaker_id"] = get_speaker_id(updated["endpoint"])
+    else:
+        if speaker_key == "speaker":
+            updated["speaker_id"] = updated.pop("speaker")
+    if "volume" not in updated:
+        updated["volume"] = get_volume()
+    return updated
+
+
+def _run_mode_with_config(mode: str, cfg: Dict[str, Any]) -> int:
+    mode = mode.lower()
+    if mode == "recognizer":
+        filled = _prompt_missing_common(cfg)
+        original_argv = sys.argv.copy()
+        sys.argv = [
+            "whisper-recognize",
+            "--model",
+            str(filled["model"]),
+            "--language",
+            str(filled["language"]),
+            "--device",
+            str(filled["device"]),
+            "--compute-type",
+            str(filled["compute_type"]),
+            "--silence-threshold",
+            str(filled["silence_threshold"]),
+            "--chunk-duration",
+            str(filled["chunk_duration"]),
+        ]
+        try:
+            return run_recognizer()
+        finally:
+            sys.argv = original_argv
+
+    if mode == "synthesizer":
+        filled = _prompt_missing_synthesis(cfg)
+        original_argv = sys.argv.copy()
+        sys.argv = [
+            "whisper-synthesize",
+            "--stdin",
+            "--speaker-id",
+            str(filled["speaker_id"]),
+            "--volume",
+            str(filled["volume"]),
+            "--endpoint",
+            str(filled["endpoint"]),
+        ]
+        try:
+            return asyncio.run(run_synthesizer())
+        finally:
+            sys.argv = original_argv
+
+    if mode == "integrated":
+        # Merge common + synthesis prompts
+        filled = _prompt_missing_common(cfg)
+        filled = _prompt_missing_synthesis(filled)
+        original_argv = sys.argv.copy()
+        sys.argv = [
+            "whisper-integrated",
+            "--model",
+            str(filled["model"]),
+            "--language",
+            str(filled["language"]),
+            "--device",
+            str(filled["device"]),
+            "--compute-type",
+            str(filled["compute_type"]),
+            "--silence-threshold",
+            str(filled["silence_threshold"]),
+            "--chunk-duration",
+            str(filled["chunk_duration"]),
+            "--speaker-id",
+            str(filled["speaker_id"]),
+            "--volume",
+            str(filled["volume"]),
+            "--endpoint",
+            str(filled["endpoint"]),
+        ]
+        try:
+            return asyncio.run(run_integrated())
+        finally:
+            sys.argv = original_argv
+
+    print(f"❌ Unknown mode in config: {mode}")
+    return 1
+
+
 def run_recognizer_interactive():
     """Run recognizer with interactive configuration."""
     print("\n🎧 Configuring Speech Recognition...")
@@ -623,6 +790,11 @@ def main():
         help="Run in interactive mode (default when no other options specified)",
     )
     parser.add_argument(
+        "--config",
+        type=str,
+        help="Path to KDL config. If it defines exactly one mode, runs it; otherwise prompts.",
+    )
+    parser.add_argument(
         "--integrated", action="store_true", help="Run integrated system directly"
     )
     parser.add_argument(
@@ -651,6 +823,12 @@ def main():
         print("  whisper-aivis --recognize       # Run recognition with defaults")
         print("  whisper-aivis --synthesize      # Run synthesis with defaults")
         print("  whisper-aivis --monitor         # Run audio monitor with defaults")
+        print(
+            "  whisper-aivis --config config/defaults.kdl   # Use KDL; choose mode if multiple"
+        )
+        print(
+            "  whisper-aivis --config config/mkpoli.kdl     # Auto-run chosen mode in KDL"
+        )
         print("\nInteractive mode allows you to configure:")
         print("  • Whisper model (tiny/base/small/medium/large)")
         print("  • Language (ja/en/zh/ko/custom)")
@@ -675,6 +853,47 @@ def main():
     elif args.monitor:
         print("📊 Starting Audio Level Monitor...")
         return run_audio_monitor()
+
+    # If config is provided, use it to decide mode and fill missing values
+    if args.config:
+        try:
+            sections = list_present_sections(args.config)
+        except Exception as e:
+            print(f"⚠️  Failed to parse config: {e}")
+            sections = []
+
+        chosen_mode: Optional[str] = None
+        config_map: Dict[str, Any] = {}
+
+        if len(sections) == 1:
+            chosen_mode = sections[0]
+        elif len(sections) > 1:
+            # Ask the user to choose a mode
+            print("\nConfig contains multiple modes. Choose one:")
+            for idx, name in enumerate(sections, start=1):
+                print(f"{idx}. {name}")
+            while True:
+                try:
+                    choice = input(f"Select (1-{len(sections)}): ").strip()
+                    if choice and choice.isdigit():
+                        i = int(choice)
+                        if 1 <= i <= len(sections):
+                            chosen_mode = sections[i - 1]
+                            break
+                    print("❌ Invalid selection")
+                except (EOFError, KeyboardInterrupt):
+                    print("\n👋 Goodbye!")
+                    return 0
+
+        if chosen_mode:
+            try:
+                config_map = load_kdl_config(args.config, section=chosen_mode)
+                print_config_summary(args.config, chosen_mode, config_map)
+            except Exception as e:
+                print(f"⚠️  Failed to load section '{chosen_mode}': {e}")
+                config_map = {}
+
+            return _run_mode_with_config(chosen_mode, config_map)
 
     # If no specific tool is requested, run interactive mode
     if args.interactive or not unknown:

@@ -7,9 +7,11 @@ Command-line interface for the complete speech recognition + synthesis system.
 
 import asyncio
 import argparse
+import sys
 import warnings
 
 from lib.integrated_system import IntegratedSpeechSystem
+from lib.config_kdl import load_kdl_config, apply_config_over_args
 
 # Suppress noisy warnings by default
 warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
@@ -18,6 +20,9 @@ warnings.filterwarnings("ignore", category=UserWarning, module="ctranslate2")
 async def run_cli():
     parser = argparse.ArgumentParser(
         description="Integrated real-time recognition + synthesis"
+    )
+    parser.add_argument(
+        "--config", type=str, help="Path to KDL config file (section: integrated)"
     )
     parser.add_argument(
         "--model",
@@ -57,6 +62,24 @@ async def run_cli():
         "--compute-type", default="int8", help="faster-whisper compute type"
     )
     args = parser.parse_args()
+
+    # Build presence map: which flags were explicitly provided
+    presence = {}
+    for action in parser._actions:  # type: ignore[attr-defined]
+        if not getattr(action, "option_strings", None):
+            continue
+        dest = getattr(action, "dest", None)
+        if not dest:
+            continue
+        presence[dest] = any(opt in sys.argv for opt in action.option_strings)
+
+    # Load and apply KDL config if provided
+    if getattr(args, "config", None):
+        try:
+            cfg = load_kdl_config(args.config, section="integrated")
+            args = apply_config_over_args(args, cfg, flag_presence_lookup=presence)
+        except Exception as e:
+            print(f"⚠️  Failed to load config: {e}")
 
     system = IntegratedSpeechSystem(
         whisper_model=args.model,
