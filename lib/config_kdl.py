@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import Any, Iterable, Optional
 import os
+import re
 import ckdl  # type: ignore
 
 
@@ -102,30 +103,13 @@ def load_kdl_config(path: str, section: str) -> dict[str, Any]:
 
 
 def list_present_sections(path: str) -> list[str]:
-    """Return a list of present high-level sections in the KDL file.
-
-    Recognized section names: "recognizer", "synthesizer", "integrated".
-    Sections may be top-level nodes or children of a top-level `config` node.
-    """
-    if not os.path.exists(path):
-        return []
-    with open(path, "r", encoding="utf-8") as f:
-        source = f.read()
-    doc = ckdl.parse(source)  # type: ignore[attr-defined]
-
+    # Deprecated: retained for compatibility, now a thin wrapper over parse_config_doc
+    doc = parse_config_doc(path)
     candidates = ["recognizer", "synthesizer", "integrated"]
     present: list[str] = []
-
-    # Only consider top-level nodes; nested config { ... } is not supported
     for name in candidates:
         if _find_child(doc, name) is not None:
             present.append(name)
-
-    if not present:
-        raise ValueError(
-            "Config invalid: no 'recognizer', 'synthesizer', or 'integrated' section found"
-        )
-
     return present
 
 
@@ -212,6 +196,54 @@ def compose_integrated_config(path: str) -> dict[str, Any]:
     except Exception:
         integ = {}
 
+    combined: dict[str, Any] = {}
+    combined.update(rec)
+    combined.update(syn)
+    combined.update(integ)
+    return combined
+
+
+def get_explicit_mode(path: str) -> Optional[str]:
+    # Deprecated: use get_explicit_mode_from_doc with parse_config_doc
+    doc = parse_config_doc(path)
+    return get_explicit_mode_from_doc(doc)
+
+
+def parse_config_doc(path: str) -> Any:
+    if not os.path.exists(path):
+        raise FileNotFoundError(path)
+    with open(path, "r", encoding="utf-8") as f:
+        source = f.read()
+    return ckdl.parse(source)  # type: ignore[attr-defined]
+
+
+def get_explicit_mode_from_doc(doc: Any) -> Optional[str]:
+    # Prefer a top-level node named 'mode'
+    mode_node = _find_child(doc, "mode")
+    if mode_node is None:
+        return None
+    # ckdl exposes positional args under .args
+    args = getattr(mode_node, "args", None)
+    if isinstance(args, list) and args:
+        val = getattr(args[0], "value", args[0])
+        if isinstance(val, str):
+            low = val.strip().lower()
+            if low in {"recognizer", "synthesizer", "integrated"}:
+                return low
+    return None
+
+
+def load_section_from_doc(doc: Any, section: str) -> dict[str, Any]:
+    nodes = list(_get_section_nodes(doc, section))
+    if not nodes:
+        return {}
+    return _collect_node_kv(nodes)
+
+
+def compose_integrated_from_doc(doc: Any) -> dict[str, Any]:
+    rec = _normalize_keys(load_section_from_doc(doc, "recognizer"))
+    syn = _normalize_keys(load_section_from_doc(doc, "synthesizer"))
+    integ = _normalize_keys(load_section_from_doc(doc, "integrated"))
     combined: dict[str, Any] = {}
     combined.update(rec)
     combined.update(syn)

@@ -19,9 +19,10 @@ from .recognizer_cli import main as run_recognizer
 from .synthesizer_cli import main as run_synthesizer
 from .audio_monitor_cli import main_sync as run_audio_monitor
 from lib.config_kdl import (
-    list_present_sections,
-    load_kdl_config,
-    compose_integrated_config,
+    parse_config_doc,
+    get_explicit_mode_from_doc,
+    load_section_from_doc,
+    compose_integrated_from_doc,
 )
 
 
@@ -873,30 +874,38 @@ def main():
     # If config is provided, use it to decide mode and fill missing values
     if args.config:
         try:
-            sections = list_present_sections(args.config)
+            doc = parse_config_doc(args.config)
+            explicit = get_explicit_mode_from_doc(doc)
         except Exception as e:
             print(f"⚠️  Failed to parse config: {e}")
-            sections = []
+            doc = None
+            explicit = None
 
         chosen_mode: Optional[str] = None
         config_map: Dict[str, Any] = {}
 
-        if len(sections) == 1:
-            chosen_mode = sections[0]
-        elif len(sections) > 1:
-            # Ask the user to choose a mode
-            print("\nConfig contains multiple modes. Choose one:")
-            for idx, name in enumerate(sections, start=1):
-                print(f"{idx}. {name}")
+        if explicit:
+            chosen_mode = explicit
+        else:
+            # Use the same UX as the original interactive selection
+            print("\nAvailable modes:")
+            print("1. 🎯 Integrated System (Recognition + Synthesis)")
+            print("2. 🎧 Speech Recognition Only")
+            print("3. 🔊 Text-to-Speech Only")
             while True:
                 try:
-                    choice = input(f"Select (1-{len(sections)}): ").strip()
-                    if choice and choice.isdigit():
-                        i = int(choice)
-                        if 1 <= i <= len(sections):
-                            chosen_mode = sections[i - 1]
-                            break
-                    print("❌ Invalid selection")
+                    choice = input("\nSelect an option (1-3): ").strip()
+                    if choice == "1":
+                        chosen_mode = "integrated"
+                        break
+                    elif choice == "2":
+                        chosen_mode = "recognizer"
+                        break
+                    elif choice == "3":
+                        chosen_mode = "synthesizer"
+                        break
+                    else:
+                        print("❌ Please enter a number between 1 and 3")
                 except (EOFError, KeyboardInterrupt):
                     print("\n👋 Goodbye!")
                     return 0
@@ -904,9 +913,9 @@ def main():
         if chosen_mode:
             try:
                 if chosen_mode == "integrated":
-                    config_map = compose_integrated_config(args.config)
+                    config_map = compose_integrated_from_doc(doc)
                 else:
-                    config_map = load_kdl_config(args.config, section=chosen_mode)
+                    config_map = load_section_from_doc(doc, chosen_mode)
                 print_config_summary(args.config, chosen_mode, config_map)
             except Exception as e:
                 print(f"⚠️  Failed to load section '{chosen_mode}': {e}")

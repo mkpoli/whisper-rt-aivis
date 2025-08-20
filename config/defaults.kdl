@@ -1,6 +1,9 @@
 // Default configuration for whisper-rt-aivis
 // See KDL: https://kdl.dev ; Parser: https://github.com/tjol/ckdl
 
+mode #null // #null means choose mode from interactive CLI
+// mode integrated // or use one of [recognizer, synthesizer, integrated]
+
 recognizer {
   model "large"
   language "ja"
