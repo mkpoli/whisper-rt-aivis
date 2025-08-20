@@ -156,6 +156,7 @@ class WhisperRecognizer:
         print(f"🌍 Language: {self.language}")
         print(f"🔊 Silence Threshold: {self.silence_threshold}")
         print(f"🖥️ Device: {self.device} | ⚙️ Compute: {self.compute_type}")
+        print("=" * 80)
         print("💬 Speak now! Press Ctrl+C to stop.\n")
 
     def stop_recording(self):
